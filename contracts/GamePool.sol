@@ -15,13 +15,14 @@ contract GamePool is Ownable, ReentrancyGuard {
         uint256 indexed gameId,
         uint256 indexed poolNum
     );
-    event ClaimStatusChanged(uint256 indexed gameId, bool claimable);
+    // event ClaimStatusChanged(uint256 indexed gameId, bool claimable);
     event PoolClosed(uint256 indexed gameId, uint256 indexed poolNum);
 
     string public gameName;
     uint public gameId;
     uint public totalPool;
-    uint availableForDeployment; // available token for game deployment
+    uint public version = 1;
+    uint public availableForDeployment; // available token for game deployment
 
     address public tokenAddress;
     address public receiverAddress;
@@ -29,6 +30,7 @@ contract GamePool is Ownable, ReentrancyGuard {
     address public treasuryAddress;
     address public scholarRewardAddress;
     address public reinvestAddress;
+    address public adminAddress;
 
     uint public poolCounter = 0;
     bool public claimable;
@@ -46,6 +48,7 @@ contract GamePool is Ownable, ReentrancyGuard {
 
     InvestPool[] public investPools;
     mapping(address => bool) isInvestPool;
+    mapping(address => bool) isWhitelistAddress;
 
     struct RewardLog {
         uint weekNum;
@@ -76,6 +79,19 @@ contract GamePool is Ownable, ReentrancyGuard {
         _;
     }
 
+    modifier isWhitelisted(address _adr) {
+        require(isWhitelistAddress[_adr], "Not in Whitelist");
+        _;
+    }
+
+    // modifier isAdminOrOwner() {
+    //     require(
+    //         msg.sender == adminAddress || msg.sender == owner(),
+    //         "Not Admin or Owner"
+    //     );
+    //     _;
+    // }
+
     constructor(
         string memory _gameName,
         uint _gameId,
@@ -94,6 +110,7 @@ contract GamePool is Ownable, ReentrancyGuard {
         tokenAddress = _tokenAddress;
         scholarRewardAddress = _scholarAddress;
         reinvestAddress = _reinvestAddress;
+        // adminAddress = msg.sender;
     }
 
     function createPool(
@@ -129,14 +146,15 @@ contract GamePool is Ownable, ReentrancyGuard {
         return investPools;
     }
 
-    function getAvailableTokenForDeployment()
-        external
-        view
-        onlyOwner
-        returns (uint)
-    {
-        return availableForDeployment;
-    }
+    // function getAvailableTokenForDeployment()
+    //     external
+    //     view
+    //     // isAdminOrOwner
+    //     onlyOwner
+    //     returns (uint)
+    // {
+    //     return availableForDeployment;
+    // }
 
     function getAllPoolStatus()
         external
@@ -162,27 +180,36 @@ contract GamePool is Ownable, ReentrancyGuard {
         external
         onlyOwner
     {
+        require(
+            _collectedTreasuryPercent >= 0 && _collectedTreasuryPercent <= 20,
+            "Not in range"
+        );
         collectedTreasuryPercent = _collectedTreasuryPercent;
     }
 
-    function setScholarRewardAddress(address _scholarRewardAddress)
-        external
-        onlyOwner
-    {
-        scholarRewardAddress = _scholarRewardAddress;
-    }
-
-    function setReinvestAddress(address _reinvestAddress) external onlyOwner {
-        reinvestAddress = _reinvestAddress;
-    }
-
-    function setTreasuryAddress(address _treasuryAddress) external onlyOwner {
+    function setGameAddresses(
+        address _receiverAddress,
+        address _treasuryAddress,
+        address _scholarRewardAddress,
+        address _reinvestAddress
+    ) external onlyOwner {
+        require(
+            isWhitelistAddress[_receiverAddress] &&
+                isWhitelistAddress[_treasuryAddress] &&
+                isWhitelistAddress[_scholarRewardAddress] &&
+                isWhitelistAddress[_reinvestAddress],
+            "Not in Whitelist"
+        );
+        receiverAddress = _receiverAddress;
         treasuryAddress = _treasuryAddress;
+        scholarRewardAddress = _scholarRewardAddress;
+        reinvestAddress = _reinvestAddress;
     }
 
     function setRewardInjector(address _injector, bool _status)
         external
         onlyOwner
+        isWhitelisted(_injector)
     {
         rewardInjector[_injector] = _status;
     }
@@ -194,8 +221,8 @@ contract GamePool is Ownable, ReentrancyGuard {
         uint _rewardInvestorsPercent
     ) external onlyOwner {
         require(
-            _rewardInvestorsPercent >= 50,
-            "Investor Reward should be more than 50%"
+            _rewardInvestorsPercent >= 20,
+            "Investor Reward should be more than 20%"
         );
         require(
             _rewardTreasuryPercent +
@@ -211,8 +238,17 @@ contract GamePool is Ownable, ReentrancyGuard {
         rewardInvestorsPercent = _rewardInvestorsPercent;
     }
 
-    function setReceiverAddress(address _receiverAddress) external onlyOwner {
-        receiverAddress = _receiverAddress;
+    // function setAdminAddress(address _adminAddress) external onlyOwner {
+    //     adminAddress = _adminAddress;
+    // }
+
+    function setWhitelistAddress(address[] calldata _adrs, bool _status)
+        external
+        onlyOwner
+    {
+        for (uint index = 0; index < _adrs.length; index++) {
+            isWhitelistAddress[_adrs[index]] = _status;
+        }
     }
 
     // called by investpool on finalize
@@ -224,18 +260,6 @@ contract GamePool is Ownable, ReentrancyGuard {
         uint[] calldata _investments
     ) external byInvestPool {
         totalPool += _investedAmount;
-
-        // fee for Treasury
-        // uint toTreasury = (collectedTreasuryPercent * _investedAmount) /
-        //     PERCENT_DIVIDER;
-
-        // transfer to Treasury
-        // IERC20 token = IERC20(tokenAddress);
-        // token.transfer(treasuryAddress, toTreasury);
-
-        // Amount for withdrawal to gamerWallet
-        // uint forDeployment = _investedAmount - toTreasury;
-        // availableForDeployment += forDeployment;
 
         availableForDeployment += _investedAmount;
 
@@ -270,6 +294,10 @@ contract GamePool is Ownable, ReentrancyGuard {
         nftLastClaimedWeek[_tokenId] = investData[_poolNum].rewardCount;
     }
 
+    function setVersion(uint _version) external onlyOwner {
+        version = _version;
+    }
+
     function getNftClaimedCounter(uint _tokenId)
         external
         view
@@ -283,8 +311,10 @@ contract GamePool is Ownable, ReentrancyGuard {
     // treasury, scholar, reinvest
     // while for investor they need to claim manually
     function fillReward(uint _amount, uint _weekNum) public {
-        require(rewardInjector[msg.sender], "Not the reward injector");
-        require(tokenAddress != address(0), "Token should set");
+        require(
+            rewardInjector[msg.sender] || msg.sender == owner(),
+            "Not the reward injector"
+        );
         require(treasuryAddress != address(0), "Treasury should set");
         require(scholarRewardAddress != address(0), "Scholar should set");
         require(reinvestAddress != address(0), "Reinvest should set");
@@ -306,8 +336,8 @@ contract GamePool is Ownable, ReentrancyGuard {
         IERC20 token = IERC20(tokenAddress);
         token.transferFrom(msg.sender, address(this), _amount);
 
-        token.transfer(treasuryAddress, toTreasury);
-        token.transfer(scholarRewardAddress, toScholar);
+        if (toTreasury > 0) token.transfer(treasuryAddress, toTreasury);
+        if (toScholar > 0) token.transfer(scholarRewardAddress, toScholar);
         if (toReinvest > 0) token.transfer(reinvestAddress, toReinvest);
     }
 
@@ -325,23 +355,21 @@ contract GamePool is Ownable, ReentrancyGuard {
     function claimRewardStatus(bool _claimable) external onlyOwner {
         claimable = _claimable;
 
-        emit ClaimStatusChanged(gameId, claimable);
+        // emit ClaimStatusChanged(gameId, claimable);
     }
 
     // withdraw to game wallet for buying assets, etc
     function deployTokenToGame(uint _amount, address _receiverAddress)
         external
         onlyOwner
+        isWhitelisted(_receiverAddress)
     {
         require(availableForDeployment >= _amount, "Not enough for deployment");
 
+        availableForDeployment -= _amount;
+
         IERC20 token = IERC20(tokenAddress);
         token.transfer(_receiverAddress, _amount);
-        availableForDeployment -= _amount;
-    }
-
-    function clearStuckBalance() external onlyOwner {
-        payable(msg.sender).transfer(address(this).balance);
     }
 
     // to fetch real investorData, use NFT they're currently holding, not by invest addr
@@ -435,7 +463,7 @@ contract GamePool is Ownable, ReentrancyGuard {
         require(claimable, "Not Claimable");
         GeekzPass _geekzPass = GeekzPass(geekzPassAddress);
         uint totalNFT = _geekzPass.balanceOf(msg.sender);
-        require(totalNFT > 0, "Not holding any GeekzPass");
+        require(totalNFT > 0, "No Geekzpass");
 
         uint unclaimed = 0;
 
@@ -450,11 +478,12 @@ contract GamePool is Ownable, ReentrancyGuard {
                 unclaimed += _reward;
             }
 
-            // guard
+            // guard (check-effect-interaction)
             nftLastClaimedWeek[tokenId] = rewardCounter;
         }
 
         IERC20 token = IERC20(tokenAddress);
+        require(unclaimed > 0, "Nothing to claim");
         token.transfer(msg.sender, unclaimed);
 
         return unclaimed;

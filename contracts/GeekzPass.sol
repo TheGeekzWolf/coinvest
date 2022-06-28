@@ -13,6 +13,7 @@ contract GeekzPass is Ownable, ERC721, ERC721Enumerable, ReentrancyGuard {
     string public gameName;
     address public gamePool;
     string baseUri = "https://gpass.geekzwolf.com/";
+    uint public version = 1;
 
     Counters.Counter private _tokenIdCounter;
 
@@ -51,6 +52,10 @@ contract GeekzPass is Ownable, ERC721, ERC721Enumerable, ReentrancyGuard {
         baseUri = uri;
     }
 
+    function setVersion(uint _version) external onlyOwner {
+        version = _version;
+    }
+
     function _baseURI() internal view override returns (string memory) {
         return baseUri;
     }
@@ -83,7 +88,7 @@ contract GeekzPass is Ownable, ERC721, ERC721Enumerable, ReentrancyGuard {
                     minted[i] = true;
                     return tokenId;
                 } else {
-                    revert("ALREADY MINT");
+                    revert("already minted");
                 }
             }
         }
@@ -121,9 +126,7 @@ contract GeekzPass is Ownable, ERC721, ERC721Enumerable, ReentrancyGuard {
         require(msg.sender == gamePool, "Not From GamePool");
 
         bool[] memory minted = new bool[](_investors.length);
-        // for (uint256 i = 0; i < _investors.length - 1; i++) {
-        //     minted[i] = false;
-        // }
+
         PoolData memory pool = PoolData(
             _gameId,
             _poolNum,

@@ -128,8 +128,8 @@ contract InvestPool is Ownable {
         GamePool _gamePool = GamePool(gamePoolAddress);
 
         // set on gamepool nftLastClaimedWeek to track last claimed reward
-        _gamePool.setNftClaimed(tokenId, poolNum);
         minted[msg.sender] = true;
+        _gamePool.setNftClaimed(tokenId, poolNum);
     }
 
     function getInvested() external view returns (uint) {
@@ -153,29 +153,6 @@ contract InvestPool is Ownable {
 
         return (investors, investments);
     }
-
-    function clearStuckBalance() external onlyOwner {
-        payable(receiverAddress).transfer(address(this).balance);
-    }
-
-    // function claimReward() external {
-    //     IERC20 token = IERC20(tokenAddress);
-    //     (uint unclaimed, uint totalNFT) = getAvailableClaim();
-    //     require(unclaimed > 0);
-
-    //     GamePool _gamePool = GamePool(gamePoolAddress);
-    //     GeekzPass _geekzPass = GeekzPass(geekzPassAddress);
-
-    //     for (uint i = 0; i < totalNFT; i++) {
-    //         uint tokenId = _geekzPass.tokenOfOwnerByIndex(msg.sender, i);
-
-    //         // guard
-    //         _gamePool.setNftClaimed(tokenId, poolNum);
-    //     }
-
-    //     // this is valid if reward being distributed to investPool
-    //     token.transfer(msg.sender, unclaimed);
-    // }
 
     function getAvailableClaim()
         public

@@ -32,10 +32,8 @@ contract GameManager is Ownable {
     function remove(uint index) internal onlyOwner {
         if (index >= gamePools.length) return;
 
-        for (uint i = index; i < gamePools.length - 1; i++) {
-            gamePools[i] = gamePools[i + 1];
-            gameList[i] = gameList[i + 1];
-        }
+        gamePools[index] = gamePools[gamePools.length - 1];
+        gameList[index] = gameList[gameList.length - 1];
         gamePools.pop();
         gameList.pop();
     }
