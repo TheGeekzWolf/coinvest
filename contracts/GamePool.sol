@@ -402,13 +402,13 @@ contract GamePool is Ownable, ReentrancyGuard {
             uint[] memory
         )
     {
-        uint[] memory poolId = new uint[](poolCounter - 1);
-        uint[] memory amounts = new uint[](poolCounter - 1);
-        uint[] memory closedTime = new uint[](poolCounter - 1);
+        uint[] memory poolId = new uint[](poolCounter);
+        uint[] memory amounts = new uint[](poolCounter);
+        uint[] memory closedTime = new uint[](poolCounter);
 
         // first poolId is 1, not 0. thus removing first 0 array of investData
         uint counter = 0;
-        for (uint i = 1; i < poolCounter; i++) {
+        for (uint i = 1; i <= poolCounter; i++) {
             poolId[counter] = investData[i].poolId;
             amounts[counter] = investData[i].amount;
             closedTime[counter] = investData[i].closedTime;
