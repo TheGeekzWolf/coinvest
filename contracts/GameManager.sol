@@ -7,7 +7,7 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 contract GameManager is Ownable {
     address[] private gamePools;
     string[] private gameList;
-    string chainName;
+    string public chainName;
 
     event GamePoolCreated(
         address indexed gamePoolAddress,
